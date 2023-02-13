@@ -1,0 +1,390 @@
+
+---
+title: "R-Bootcamp Assignment"
+author: "Joel Luescher, Philipp Gaemperli"
+date: "Luzern, 2.2.2022"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.path = "Figures/", dev = "jpeg")
+```
+
+
+## Analysis of Bike Sharing in Washington D.C.
+
+Bicycles are becoming an increasingly popular way to get from A to B quickly in Washington D.C., avoiding traffic chaos and congestion. Instead of buying and maintaining a bike, more and more people are renting bikes so they can use them where they need them when they need them. If potential customers want to rent a bike at a certain location and then all of them are rented at that time, this leaves a bad impression on the customers and they think twice next time if they really want to rent a bike.
+
+To prevent this from happening, it is important that the bike rental system Bike Sharing Washington D.C. can predict demand as accurately as possible and provide bikes accordingly. To predict demand, Bike Sharing Washington D.C. recorded the hourly number of bicycle rentals in 2011 and 2012. In addition, the company also collected data on weather conditions and seasonality, as these parameters are likely to have an impact on the amount of rentals.
+
+As a business intelligence consultant, it is our task to apply methods and processes to analyse systematic data of the organisation at hand in order to identify and quantify opportunities and risks for the business and to present them in observation. Specifically, we want to synthesise information and knowledge from the available data set for a decision-making situation.
+
+<center>
+
+![Fig. 1: Bike sharing station.](Figures/Bike.jpg){width=500px}
+
+</center>
+
+### Importing Data
+
+In a first step, we imported the data set, which can be found under the following link on [Kaeggle](https://www.kaggle.com/marklvl/bike-sharing-dataset). The data set is in .csv format and separated by semicolns.
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+library(tidyverse)
+library(purrr)
+library(RColorBrewer)
+library(scales)
+library(readr)
+library(tidyr)
+library(dplyr)
+library(corrplot)
+library(lattice)
+library(knitr)
+```
+
+```{r import1, message=FALSE}
+bike_data <- read.csv("hour.csv", header = TRUE)
+```
+
+### Getting an overview
+
+To get a rough overview of the data entries and variables, we inspected the first lines of the data set.
+
+```{r converting, message=FALSE}
+head(bike_data)
+```
+
+### Datatypes
+
+Furthermore, we have checked the format of the data types. It can be seen that in the data set we are dealing with numerical values and integers. In addition, for the date we have characters.
+
+```{r dtatypes, message=FALSE}
+str(bike_data)
+```
+
+### Convert values
+
+From the description of the data set we have seen that certain variables have been adjusted (hum, temp, atemp, windspeed). We brought these values back into the correct format with a simple conversion.
+
+```{r converting1, message=FALSE}
+bike_data$hum <- (bike_data$hum * 100)
+bike_data$temp <- (bike_data$temp * (39-(-8)) + (-8))
+bike_data$atemp <- (bike_data$atemp * (50-(-16))+ (-16))
+bike_data$windspeed <- (bike_data$windspeed * 67)
+```
+
+### Convert dteday column to date
+
+As already described, the date is shown as a character in the data set. To make it easier to handle this value, we have changed the data type into a Date data type. In addition, the summary shows the smallest value, the first quartile, the median, the mean, the third quartile and the maximum value per column. This summary helps to get a first overview of the data and the values.
+
+```{r converting2}
+bike_data$dteday <- as.Date(bike_data$dteday, origin = "1900-01-01")
+str(bike_data)
+```
+
+After all the data preparation, we would like to give an overview of the data types to see how they have changed.
+
+```{r converting3}
+head(bike_data)
+summary(bike_data)
+```
+
+
+### Datacleaning
+
+In a next step, we checked whether we had any missing values in the dataset. This showed that there are no missing values in the data set. We also read out the number of rows and the number of columns.
+
+```{r cleaning}
+anyNA(bike_data)
+nrow(bike_data)
+ncol(bike_data)
+```
+
+
+## Analysis
+
+In a first step we have plotted the same plot twice, once with the library lattice and once with ggplot. We wanted to get a feel for both libraries and then decided to use the ggplot library for the rest of the plots.
+
+```{r analysis}
+#Fist analysis with plot function
+plot(x= bike_data$casual, y = bike_data$registered, main = "Registered vs. casual",
+     xlab = "casual",
+     ylab = "registered",
+     col = "blue",
+     pch = 19)
+
+#First analysis with xyplot function from library lattice
+xyplot (bike_data$registered ~ bike_data$casual, main = "Registered vs. casual",
+     xlab = "casual",
+     ylab = "registered",
+     pch = 19)
+
+
+#Boxplot with total loans by time of day, grouped by time of day
+ggplot(data = bike_data, aes(hr, cnt, group=hr)) +
+       geom_boxplot(fill="purple2") +
+xlab("daytime") +
+ylab("loans") +
+ggtitle("Boxplot Number of loans by time of day") +
+geom_hline(yintercept = 400, color = "purple2", size = 0.5)
+```
+
+To get a overview of the data, we also created plots with the different values from the data set to see at which time of day, on which day of the week, in which weather conditions etc. the most bikes were lent out.
+
+From this Boxplot it can be read at which times of the day on average the most bicycles are rented. It is also visible how great the dispersion is at the different times of the day.
+
+The diagram shows that most bicycles are rented in the morning between 08:00 and 09:00 and in the evening between 17:00 and 19:00.
+
+```{r analysis2}
+ggplot(data = bike_data, aes(mnth, cnt, group=mnth)) +
+       geom_boxplot(fill="mediumpurple3") +
+xlab("month") +
+ylab("number of loans") +
+coord_cartesian(xlim = c(0, 13)) +
+scale_y_continuous(labels = number_format()) +
+ggtitle("Boxplot number of loans by month") +
+geom_hline(yintercept = 400, color = "mediumpurple3", size = 0.5)
+```
+
+In this chart, it can be seen that the summer months between May and October have the highest average number of bicycle rentals. The purple line is again at 400 rentals. In no month is the mean or the third quartile at 400 rentals, this is probably due to the fact that there are usually days with bad weather in each month when fewer rentals are made and therefore the monthly mean is lower.
+
+```{r analysis3}
+#Boxplot with total loans and season, grouped by season
+ggplot(data = bike_data, aes(season, cnt, group=season)) +
+       geom_boxplot(fill="blueviolet") +
+xlab("season") +
+ylab("number of loans") +
+ggtitle("Boxplot number of loans by season")
+```
+
+From this boxplot we can see that the median is largest in the third season, summer, followed by spring, autumn and finally winter. After seeing the evaluation by month, we are no longer surprised by this result.
+
+The spread between the lower and upper quartiles is also greatest in summer.
+
+```{r analysis4, message=FALSE, warning=FALSE}
+#Dot chart with number of loans by date
+ggplot(data = bike_data, aes(dteday, cnt)) +
+       geom_point(color="purple") +
+       geom_smooth(method = "lm", color = "purple4") +
+xlab("date") +
+ylab("number of loans") +
+ggtitle("Dot chart with number of loans by date")
+```
+
+In the chart above you can see the number of loans by date. As can be seen, in the first year, 2011, fewer bicycles were borrowed overall than in 2012. The line shows the trend. The trend is upwards. This means that, according to the trend, more bicycles are borrowed each year.
+
+```{r analysis5}
+#Histogram with number of loans according to weather conditions
+ggplot(data = bike_data, aes(weathersit)) +
+       geom_histogram(fill="slateblue1", binwidth=1) +
+xlab("weather conditions") +
+ylab("number of loans")+
+ggtitle("Histogram with loans according to weather conditions")
+```
+
+The graph above shows that by far the most bicycles are rented in good weather and in very bad weather, at number 4, so few bicycles are rented that this is not visible on the graph.
+
+```{r analysis6}
+#Bar chart with number of loans and temperature
+ggplot(data = bike_data, aes(x=temp, y=cnt, fill=temp)) +
+       geom_col() +
+ scale_fill_gradient2(low="plum2", high="purple4", mid="purple") +
+xlab("temperature") +
+ylab("number of loans") +
+geom_hline(yintercept = 150000, color = "purple4", size = 0.5) +
+ggtitle("Bar chart with number of loans and temperature")
+```
+
+In the diagram above, it can be seen that the number of rentals is highest between 20 and 27 degrees. At temperatures below 5 and above 31 degrees Celsius, the proportion of borrowed bicycles is very small.
+
+```{r analysis7}
+#Bar chart with number of loans and wind speed
+ggplot(data = bike_data, aes(x=windspeed, y=cnt)) +
+       geom_col(fill="mediumpurple3") +
+xlab("wind speed") +
+ylab("number of loans") +
+scale_y_continuous(labels = number_format()) +
+ggtitle("Bar chart with number of loans and wind speed")
+```
+
+In the bar chart above, it is clear that the higher the wind speed, the fewer bikes are rented.
+
+```{r analysis8}
+#Heatmap mit Anzahl Ausleihen und Luftfeuchtigkeit
+#Round humidity to the 10ths and create a new variable so that the graphic is clearer.
+bike_data$humR <- round(bike_data$hum, digits=-1)
+ggplot(data = bike_data, aes(x=humR, y=cnt)) +
+       geom_tile(color="purple4") +
+xlab("humidity") +
+ylab("number of loans") +
+ggtitle("Heatmap with number of loans by humidity")
+#Remove column with rounded values again
+bike_data <- bike_data %>% 
+    select(-contains("humR"))
+```
+
+In this graph, it can be seen that when the humidity is around 25-80, the most bicycles are rented. It can also be seen that not many bicycles are rented at low humidity and at very high humidity.
+
+For better readability, the continuous values of humidity have been rounded to the nearest 10.
+
+```{r analysis9}
+#casual and registered together
+bike_data_Day <- bike_data %>% gather(
+  `casual`, `registered`, key = "Nutzerart", value = "Wert")
+#Bar chart with number of loans registered and not registered and day of the week
+ggplot(data=bike_data_Day, aes(x=weekday, y=Wert, color=Nutzerart, fill=Nutzerart)) +
+       geom_col(position="dodge") +
+xlab("weekday") +
+ylab("number of loans") +
+scale_fill_manual(values = c("mediumpurple3", "purple4")) +
+scale_color_manual(values = c("mediumpurple3", "purple4")) +
+ggtitle("Bar chart with number of loans per weekday")
+```
+
+First, a note on the above diagram. The week starts at 0 and day 0 is Sunday and day 6 is Saturday.
+
+In the above diagram it can be seen that many more registered users will rent bicycles than non-registered users. It can also be seen that more bicycles are rented by non-registered users on weekends. It can be assumed that more people spontaneously decide to rent a bike at the weekend than during the week. On weekdays, it is the other way round, with more registered users renting a bike.
+
+Since more registered users rent bikes during the week, who are also more likely to be regular customers than the non-registered ones, the probability during the week can probably be predicted more accurately.
+
+## Chapter of choice
+
+We want to show the correlation of the individual variables with a correlation matrix. With the help of the density, you can easily see which variables are related and to what extent.
+
+In addition to the packages shown in the lessons, we have chosen the package corrplot to show the coorelation. The package is a CRAN package and more information can be found under the following [link](https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html).
+
+```{r corr1, message=FALSE}
+#Convert column dteday for correlation matrix to numeric
+bike_data$dteday <- as.numeric(bike_data$dteday)
+#Correlation matrix
+corrplot((cor(bike_data)), method="color",
+         col= colorRampPalette(c("slateblue1","white", "purple4"))(10))
+```
+
+Correlation tells how strong the linear relationship is between two variables. This correlation can be either positive or negative. The value of the correlation is always between -1 and 1. In the graph, the positive correlation is shown in purple and the negative correlation in blue. The darker the fields are coloured, the stronger the correlation.
+
+In the top left corner there are several dark squares. However, since the correlation is not suitable for finding correlations between two categorical variables, we will disregard these correlations.
+
+Otherwise, we have found that there are no very strong correlations. The strongest ones are at most 0.4 to 0.6, which are in the correlation between temperature and unregistered and total loans. We attribute this result to the fact that there is no strong linear correlation, since people rent more bicycles, for example, the nicer and warmer the weather is. However, if the weather is hotter than 27°C, as we have seen above, then it is too hot for people to ride bicycles and they rent fewer bicycles again.
+
+Since none of the values are strongly correlated with each other, a multiple linear regression could be suitable for the forecast model, since too strong correlations would threaten numerical instability and the model would be difficult to interpret.
+
+
+## Modelling
+
+We also tried to model the data and worked out a polynomial regression.
+
+Predicting the rentals on a specific day is too specific and not what the client wants. It is better to predict how many bikes will be rented on a nice Saturday in June with 25°C and no wind. To implement this, we first had to convert the values with data type int into numeric so that we could group the data set. We grouped the dataset by year, month, day of the week and hour. This grouping was chosen deliberately because, as we saw in the descriptive analytics, the number of loans varies greatly depending on the month, day of the week and hour.
+
+```{r modell1,  message=FALSE, warning=FALSE}
+#Convert data types from int to numeric to later convert these values into factors
+bike_data$season <- as.numeric(bike_data$season)
+bike_data$yr <- as.numeric(bike_data$yr)
+bike_data$mnth <- as.numeric(bike_data$mnth)
+bike_data$hr <- as.numeric(bike_data$hr)
+bike_data$weekday <- as.numeric(bike_data$weekday)
+bike_data$weathersit <- as.numeric(bike_data$weathersit)
+
+#Group data set by year, month, weekday and hour
+bike_data_grouped <- bike_data %>% group_by(
+  yr, mnth, weekday, hr) %>% summarise(
+    season = mean(season),
+    weathersit = mean(weathersit), 
+    temp = mean(temp), 
+    atemp = mean(atemp), 
+    hum = mean(hum), 
+    windspeed = mean(windspeed), 
+    cnt = mean(cnt))
+
+#Round discrete values to whole numbers. 
+#(Decimal places have been created by grouping and calculating the mean value)
+bike_data_grouped$season <- round(bike_data_grouped$season, digits=0)
+bike_data_grouped$weathersit <- round(bike_data_grouped$weathersit, digits=0)
+
+#Convert categorical variables into factor
+bike_data_grouped$season <-as.factor(bike_data_grouped$season)
+bike_data_grouped$yr <-as.factor(bike_data_grouped$yr)
+bike_data_grouped$mnth <-as.factor(bike_data_grouped$mnth)
+bike_data_grouped$hr <-as.factor(bike_data_grouped$hr)
+bike_data_grouped$weekday <-as.factor(bike_data_grouped$weekday)
+bike_data_grouped$weathersit <-as.factor(bike_data_grouped$weathersit)
+
+#Splitting the data into training and test data
+set.seed(101)
+sample <- sample.int(n = nrow(bike_data_grouped), 
+                     size = floor(0.8 * nrow(bike_data_grouped)), replace = F)
+#Create training dataset
+bike_train <- bike_data_grouped[ sample, ]
+#Create test data set
+bike_test <- bike_data_grouped[ -sample, ]
+
+```
+
+Since certain values do not run linearly, as seen above in the descriptive analytics, we also tried polynomial regression. For values such as temperature and humidity, the number of rentals is not linear. Users rent more bikes the warmer it is. However, if it is warmer than 27°C, then it is too warm for people to ride a bike and they rent fewer bikes again. We then refined the model accordingly and were finally able to create a prediction model that predicts with a 78% probability how many bicycles will be rented at a given time.
+
+```{r modell2}
+#Prediction model (polynomial regression)
+pr_bike <- lm(cnt ~  poly(temp, 3, raw=TRUE) + poly(atemp, 3, raw=TRUE) + 
+                poly(hum, 3, raw=TRUE) + windspeed +
+              yr + season + mnth + hr + weekday + weathersit + (temp * hr), 
+              data=bike_train)
+summary(pr_bike)
+```
+
+## Quality measurement
+
+```{r quality1, message=FALSE, warning=FALSE}
+#Calculation of residuals of the training data
+bike_train$cnt_pr_tr <- predict(pr_bike, bike_train)
+bike_train$cnt_resid_tr <- bike_train$cnt - bike_train$cnt_pr_tr
+summary(bike_train$cnt_resid_tr)
+
+#Calculation of the residual standard error of the training data
+sqrt(sum(bike_train$cnt_resid_tr^2)/(nrow(bike_train)-2))
+
+#Calculation of residuals of the test data
+bike_test$cnt_pr_ts <- predict(pr_bike, bike_test)
+bike_test$cnt_resid_ts <- bike_test$cnt - bike_test$cnt_pr_ts
+summary(bike_test$cnt_resid_ts)
+
+#Calculation of the residual standard error of the test data
+sqrt(sum(bike_test$cnt_resid_ts^2)/(nrow(bike_test)-2))
+```
+
+## Interpretation of the quality measurement
+
+The scatter of the test data is somewhat smaller than that of the training data. The mean deviates by -4.501 for the test data set. The standard error of 81.47584 for the test data is slightly higher than that of 80.24764 for the training data.
+
+## Other Functions
+
+Here we want to try other functions we have learned in the R-Bootcamp.
+
+### Matrix
+
+We have created a matrix with 5 rows and 5 columns.
+
+```{r matrix1, message=FALSE}
+#Matrix
+matrix(data = bike_data$windspeed, ncol = 9, nrow = 9)
+```
+
+
+### Data Frame
+
+In addition, we have created a dataframe from the dataset, which contains the variables temp, casual, registered and cnt.
+
+```{r dataframe1}
+#Data Frame
+d.bike_data <- data.frame(bike_data$temp, bike_data$casual, bike_data$registered, bike_data$cnt)
+head(d.bike_data)
+```
+
+## Conclusion
+
+Our analyses have shown that the number of bicycle rentals depends on various factors. More bicycles are rented in good weather than in bad weather. In summer, the weather is often better and it is warmer, which is why most bicycles are rented in the summer months. Demand is also higher in the morning and evening rush hours than during midday. In the middle of the night, the demand for bicycles is very low. There are also differences in the days of the week. More bicycles are rented during the week than at weekends.
+
+It was also noted that more bicycles were rented in 2012 than in 2011. There is a clear upward trend. It is assumed that the bike sharing service was only established in 2011 or the trend for bike rental is increasing. It is assumed that the number of rentals will continue to increase in the coming years.
+
+With the forecast model created, it is possible to predict with a certainty of 78% when and how many bicycles will be rented. The forecast is month-, weekday- and hour-specific.
